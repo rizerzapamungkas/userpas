@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cek Username dan Password - P4OP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body { background-color: #f8fafc; font-family: 'Plus Jakarta Sans', sans-serif; color: #1e293b; }
+
+        #global-loader {
+            position: fixed; inset: 0; background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(4px); display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 9999;
+        }
+        .spinner-pop {
+            width: 60px; height: 60px; border: 6px solid #f3f3f3;
+            border-top: 6px solid #1e293b; border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="global-loader">
+        <div class="spinner-pop"></div>
+        <p id="loader-text" class="mt-4 text-slate-900 font-black uppercase tracking-widest text-xs animate-pulse">Memproses...</p>
+    </div>
+
+    <div class="max-w-3xl mx-auto px-6 py-12">
+        <div class="text-center mb-10">
+            <h1 class="text-3xl font-black text-slate-900 tracking-tighter uppercase mb-2">
+                Cek Username dan Password
+            </h1>
+            <p class="text-sm font-bold text-slate-500 uppercase tracking-widest">
+                Pencarian akun KJMU berdasarkan Daftar Hadir Sosialisasi
+            </p>
+        </div>
+
+        <div class="bg-white rounded-3xl p-8 shadow-sm border border-slate-200">
+            <div class="mb-6 border-b border-slate-100 pb-4">
+                <h2 class="text-lg font-black text-slate-800 uppercase tracking-widest">Formulir Pencarian</h2>
+                <p id="hint" class="text-xs font-bold text-slate-400 mt-1">Isi Kode PT dan email yang dipakai pada daftar hadir.</p>
+            </div>
+
+            <form id="form-cari" onsubmit="cariData(event)" autocomplete="off">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Kode PT</label>
+                        <input type="text" id="kode_pt" required placeholder="Contoh: 031001" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1.5">Email pada Daftar Hadir</label>
+                        <input type="email" id="email" required placeholder="nama@kampus.ac.id" class="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 transition-all">
+                    </div>
+                </div>
+
+                <div id="msg-cari" class="hidden mb-4 p-3 rounded-xl text-xs font-bold text-center border"></div>
+
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-black py-4 rounded-xl text-xs uppercase tracking-widest transition-all shadow-md active:scale-95">
+                        Cari Data
+                    </button>
+                    <button type="button" onclick="resetForm()" class="px-6 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-xl text-xs uppercase tracking-widest transition-all active:scale-95">
+                        Reset
+                    </button>
+                </div>
+            </form>
+
+            <div id="hasil-list" class="hidden mt-8 flex flex-col gap-4"></div>
+
+            <div id="catatan-hasil" class="hidden mt-4 p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
+                <ul class="list-disc pl-5 space-y-1.5 text-xs font-bold text-emerald-800">
+                    <li>Setelah login, pastikan lengkapi Profil Kampus</li>
+                    <li>Silakan ubah password setelah melengkapi Profil Kampus</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Catatan halaman utama -->
+        <div class="mt-6 p-5 rounded-2xl bg-amber-50 border border-amber-200">
+            <p class="text-[11px] font-black text-amber-800 uppercase tracking-widest mb-2">Catatan</p>
+            <ul class="list-disc pl-5 space-y-1.5 text-xs font-bold text-amber-900">
+                <li>Bagi yang belum mengisi daftar hadir, silakan mengisi <a href="https://forms.gle/dwdjAcNvHVDRUbuKA" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline hover:text-blue-800 break-all">https://forms.gle/dwdjAcNvHVDRUbuKA</a> untuk dikirimkan user dan password akun Perguruan Tinggi</li>
+                <li>Gunakan salah satu email yang digunakan pada daftar hadir (karena ada banyak email yang mengisi daftar hadir pada satu Perguruan Tinggi)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        /* ============ CONFIG ============ */
+        const CONFIG = {
+            SUPABASE_URL: 'https://yysbagofajvaawztiewb.supabase.co',
+            SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl5c2JhZ29mYWp2YWF3enRpZXdiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NTg5NjYsImV4cCI6MjEwNjIzNDk2Nn0.uAZiw8t5KWmaFx6mU3GwD4eRCN31YIgnkQLf1jVtxiw',
+
+            TABLE: 'userpass',                 // GANTI jika nama tabel di Supabase berbeda
+            COLS: {                            // nama kolom di tabel Supabase
+                kode_pt: 'Username',           // Kode PT = kolom Username (mis. 031001)
+                password: 'Password',          // huruf besar/kecil harus persis sama dengan di Supabase
+                nama: 'Nama',
+                email: 'Email'
+            },
+            LIMIT: 20,
+
+            // Nama fungsi RPC di Supabase (SQL-nya ada di chat). Kosongkan '' untuk query langsung ke tabel (butuh policy select untuk anon).
+            // Fungsi menerima p_kode_pt dan p_email (keduanya harus cocok) dan mengembalikan kolom Username, Password, Nama, Email (sesuai COLS di atas).
+            RPC_NAME: 'cari_akun'
+        };
+        /* ================================ */
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+    <script>
+        const sb = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+        const MSG_ERR = 'mb-4 p-3 rounded-xl text-xs font-bold text-center bg-rose-50 text-rose-600 border border-rose-200 block';
+        const MSG_OK  = 'mb-4 p-3 rounded-xl text-xs font-bold text-center bg-emerald-50 text-emerald-600 border border-emerald-200 block';
+
+        function toggleLoader(show, text = 'Memproses...') {
+            document.getElementById('loader-text').innerText = text;
+            document.getElementById('global-loader').style.display = show ? 'flex' : 'none';
+        }
+
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+
+        async function queryData(q) {
+            const C = CONFIG.COLS;
+
+            if (CONFIG.RPC_NAME) {
+                const { data, error } = await sb.rpc(CONFIG.RPC_NAME, {
+                    p_kode_pt: q.kode_pt,
+                    p_email: q.email
+                });
+                if (error) throw error;
+                return data || [];
+            }
+
+            const select = [C.kode_pt, C.password, C.nama, C.email].join(',');
+            let query = sb.from(CONFIG.TABLE).select(select).limit(CONFIG.LIMIT);
+            query = query.eq(C.kode_pt, q.kode_pt)
+                         .ilike(C.email, q.email.replace(/[%_\\]/g, '\\$&')); // persis, tidak peduli huruf besar/kecil
+            const { data, error } = await query;
+            if (error) throw error;
+            return data || [];
+        }
+
+        function copyText(btn, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                const old = btn.innerText;
+                btn.innerText = 'Tersalin';
+                setTimeout(() => btn.innerText = old, 1200);
+            });
+        }
+
+        function field(label, value, mono, copyable) {
+            const v = value ?? '';
+            return `
+            <div>
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">${label}</p>
+                <div class="flex items-center gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                    <p class="flex-1 text-sm font-bold text-slate-700 break-all ${mono ? 'font-mono' : ''}">${esc(v) || '-'}</p>
+                    ${copyable && v ? `<button type="button" data-copy="${esc(v)}" onclick="copyText(this, this.dataset.copy)" class="shrink-0 px-3 py-1 bg-white border border-slate-200 hover:bg-slate-100 rounded-lg text-[10px] font-black text-slate-500 uppercase tracking-widest transition-all active:scale-95">Salin</button>` : ''}
+                </div>
+            </div>`;
+        }
+
+        function renderHasil(rows) {
+            const box = document.getElementById('hasil-list');
+            document.getElementById('catatan-hasil').classList.toggle('hidden', !rows.length);
+            if (!rows.length) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+            const C = CONFIG.COLS;
+
+            box.innerHTML = rows.map(r => `
+                <div class="border-2 border-slate-200 rounded-2xl overflow-hidden">
+                    <div class="bg-slate-50 p-4 border-b border-slate-200">
+                        <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Perguruan Tinggi</p>
+                        <h3 class="text-lg font-black text-slate-900 uppercase break-words">${esc(r[C.nama]) || '-'}</h3>
+                    </div>
+                    <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        ${field('Username', r[C.kode_pt], true, true)}
+                        ${field('Password', r[C.password], true, true)}
+                        <div class="md:col-span-2">${field('Email', r[C.email], false, false)}</div>
+                    </div>
+                </div>`).join('');
+            box.classList.remove('hidden');
+        }
+
+        async function cariData(e) {
+            e.preventDefault();
+            const msgBox = document.getElementById('msg-cari');
+            msgBox.classList.add('hidden');
+            renderHasil([]);
+
+            const q = {
+                kode_pt: document.getElementById('kode_pt').value.trim(),
+                email: document.getElementById('email').value.trim().toLowerCase()
+            };
+
+            if (!q.kode_pt || !q.email) {
+                msgBox.className = MSG_ERR;
+                msgBox.innerText = 'Kode PT dan email wajib diisi.';
+                return;
+            }
+
+            toggleLoader(true, 'Mencari Data...');
+            try {
+                const rows = await queryData(q);
+                if (rows.length) {
+                    renderHasil(rows);
+                    msgBox.className = MSG_OK;
+                    msgBox.innerText = `Ditemukan ${rows.length} data.`;
+                } else {
+                    msgBox.className = MSG_ERR;
+                    msgBox.innerText = 'Data tidak ditemukan. Pastikan Kode PT dan email sesuai dengan yang dipakai pada daftar hadir.';
+                }
+            } catch (err) {
+                console.error(err);
+                msgBox.className = MSG_ERR;
+                msgBox.innerText = 'Gagal mengambil data: ' + (err.message || 'tidak dapat terhubung ke server.');
+            } finally {
+                toggleLoader(false);
+            }
+        }
+
+        function resetForm() {
+            document.getElementById('form-cari').reset();
+            document.getElementById('msg-cari').classList.add('hidden');
+            renderHasil([]);
+        }
+    </script>
+</body>
+</html>
